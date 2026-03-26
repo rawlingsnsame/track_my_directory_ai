@@ -1,10 +1,8 @@
 import time
 import typer
 
-from rich import print
-from router import route
-from model import answer
 from rich.rule import Rule
+from agent.agent import run_agent
 from rich.panel import Panel
 from dotenv import load_dotenv
 from rich.console import Console
@@ -26,25 +24,28 @@ def run(query: str, repo_path: str) -> None:
     last_error = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            console.print(f"[dim]figuring out what to look at...[/dim]")
-            tools_needed = route(query)
+            # console.print(f"[dim]figuring out what to look at...[/dim]")
+            # tools_needed = route(query)
 
-            if not tools_needed:
-                console.print("[yellow]Warning: couldn't determine what to look at. Try rephrasing.[/yellow]")
-                return
+            # if not tools_needed:
+            #     console.print("[yellow]Warning: couldn't determine what to look at. Try rephrasing.[/yellow]")
+            #     return
             
-            console.print(f"[dim]gathering context with tools: {', '.join(tools_needed)}...[/dim]")
+            # console.print(f"[dim]gathering context with tools: {', '.join(tools_needed)}...[/dim]")
 
-            context = {}
+            # context = {}
 
-            for tool_name in tools_needed:
-                if tool_name in TOOLS:
-                    context[tool_name] = TOOLS[tool_name](repo_path)
+            # for tool_name in tools_needed:
+            #     if tool_name in TOOLS:
+            #         context[tool_name] = TOOLS[tool_name](repo_path)
             
-            console.print(f"[dim]answering question...[/dim]\n")
-            response = answer(query, context)
-            console.print(Panel(response, title="Answer", subtitle="Based on the gathered context"))
-            return  # Success! Exit the function.
+            # console.print(f"[dim]answering question...[/dim]\n")
+            # response = answer(query, context)
+            # print(response)
+            # console.print(Panel(response, title="Answer", subtitle="Based on the gathered context"))
+            # return  # Success! Exit the function.
+            run_agent(query, repo_path)
+            return
         except KeyboardInterrupt:
             console.print("\n[red]Process interrupted by user. Exiting.[/red]")
             return

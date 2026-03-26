@@ -77,7 +77,6 @@ class AIClient:
                     {"role": "system", "content": ROUTER_SYSTEM_PROMPT},
                     {"role": "user",   "content": question}
                     ],
-                    response_format={"type": "json_object"},
                     timeout=self.timeout,
                 )
 
@@ -97,16 +96,16 @@ class AIClient:
 
         raise AIResponseError(f"All models failed:\n" + "\n".join(f"  {m}: {e}" for m, e in errors.items()))
 
-    def call_answerer(self, system_prompt: str, messages: list) -> str:
+    def call_answerer(self, messages: list, system_prompt: str) -> str:
         errors = {}
-
+        # print(messages=[{"role": "system", "content": system_prompt}] + messages)
         for model in self.models:
             try:
                 log.info("Model: %s | Attempt 1/%d", model, self.max_retries)
                 response = self.client.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "system", "content": system_prompt}] + messages,
-                    timeout=self.timeout,
+                model=model,
+                messages=[{"role": "system", "content": system_prompt}] + messages,
+                timeout=self.timeout,
                 )
                 return response.choices[0].message.content
 
@@ -115,24 +114,40 @@ class AIClient:
                 log.warning("Model %s failed — trying next. (%s)", model, errors[model])
 
         raise AIResponseError(f"All models failed:\n" + "\n".join(f"  {m}: {e}" for m, e in errors.items()))
-    
-    def call(self, prompt: str) -> Dict:
+
+    def call_agent(self, messages: list, system_prompt: str) -> str:
+        """
+        Single model call for the agent loop.
+        Unlike call_answerer, this is called repeatedly with growing
+        history — the caller manages the conversation state.
+        Returns raw text so the agent loop can parse THOUGHT/ACTION/ANSWER.
+        """
         errors = {}
+
         for model in self.models:
             try:
-                return self._try_model(model, prompt)
+                log.info("Model: %s", model)
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "system", "content": system_prompt}] + messages,
+                    timeout=self.timeout,
+                )
+                return response.choices[0].message.content.strip()
             except Exception as e:
                 errors[model] = f"{type(e).__name__}: {e}"
                 log.warning("Model %s failed — trying next. (%s)", model, errors[model])
 
-        summary = "\n".join(f"  {m}: {err}" for m, err in errors.items())
-        raise AIResponseError(f"All models failed:\n{summary}")
+        raise AIResponseError(f"All models failed:\n" + "\n".join(f"  {m}: {e}" for m, e in errors.items()))
 
-    
 evaluator = AIClient()
         
 def get_tools_needed(prompt: str) -> Dict:
     return evaluator.call_router(prompt)
     
-def get_answer(messages: list, system_prompt: str = ROUTER_SYSTEM_PROMPT) -> str:
-    return evaluator.call_answerer(system_prompt, messages)
+def get_answer(messages: list, system_prompt: str = None) -> str:
+    if system_prompt is None:
+        raise ValueError("system_prompt is required for call_answerer")
+    return evaluator.call_answerer(messages, system_prompt)
+
+def call_agent_step(messages: list, system_prompt: str) -> str:
+    return evaluator.call_agent(messages, system_prompt)

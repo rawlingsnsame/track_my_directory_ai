@@ -1,5 +1,4 @@
 import subprocess
-from git import Repo, exc
 import os
 
 def is_git_repo(path: str) -> bool:
