@@ -2,13 +2,9 @@ import os
 import json
 import logging
 
-from time import time
-from xml.parsers.expat import errors
-from openai import OpenAI, APIConnectionError, APIStatusError, APITimeoutError
+from openai import OpenAI
 from typing import Dict, List
 from dotenv import load_dotenv
-
-from typer import prompt
 
 load_dotenv()
 

@@ -24,26 +24,6 @@ def run(query: str, repo_path: str) -> None:
     last_error = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            # console.print(f"[dim]figuring out what to look at...[/dim]")
-            # tools_needed = route(query)
-
-            # if not tools_needed:
-            #     console.print("[yellow]Warning: couldn't determine what to look at. Try rephrasing.[/yellow]")
-            #     return
-            
-            # console.print(f"[dim]gathering context with tools: {', '.join(tools_needed)}...[/dim]")
-
-            # context = {}
-
-            # for tool_name in tools_needed:
-            #     if tool_name in TOOLS:
-            #         context[tool_name] = TOOLS[tool_name](repo_path)
-            
-            # console.print(f"[dim]answering question...[/dim]\n")
-            # response = answer(query, context)
-            # print(response)
-            # console.print(Panel(response, title="Answer", subtitle="Based on the gathered context"))
-            # return  # Success! Exit the function.
             run_agent(query, repo_path)
             return
         except KeyboardInterrupt:
@@ -87,6 +67,7 @@ def query_loop(repo_path: str) -> bool:
 
 @app.command()
 def main():
+    """Entry point of the application. Handles repository selection and starts the query loop."""
     console.clear()
     console.print(Panel.fit(
         "[bold cyan]Welcome to the Repository Reporter![/bold cyan]\n\n" \
