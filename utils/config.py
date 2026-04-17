@@ -22,6 +22,7 @@ Available tools:
 - recent_commits: last 20 commits with messages and changed files
 - uncommitted_changes: any staged or unstaged work in progress
 - last_diff: the full code diff introduced by the most recent commit
+- read_readme: reads the README file of the project
 
 Rules:
 - Return ONLY a raw JSON array. No explanation, no markdown, no prose.
@@ -37,8 +38,8 @@ Examples:
   "what am i currently working on?" -> ["uncommitted_changes"]
   "what does this project look like?" -> ["directory_tree", "recent_commits"]
   "what did the last commit change?" -> ["last_diff"]
+  "what is this project about?" -> ["read_readme"] and read other .md files if README is shallow  
 """.strip()
-
 
 class AIResponseError(Exception):
     """All models exhausted or returned unusable responses."""
