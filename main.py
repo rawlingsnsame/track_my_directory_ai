@@ -1,3 +1,4 @@
+import sys
 import time
 import typer
 
@@ -20,7 +21,6 @@ def run(query: str, repo_path: str) -> None:
     Execute one full cycle of the agent: route, gather context, and answer.
     Retries the whole process up to MAX_RETRIES times if it fails.
     """
-
     last_error = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -52,56 +52,53 @@ def query_loop(repo_path: str) -> bool:
         try:
             user_query = console.input("[bold magenta]❯ [/bold magenta]").strip()
         except KeyboardInterrupt:
-            console.print("\n[yellow]Goodbye![/yellow]")
-            return False
+            console.print("\n[yellow]Returning to zila shell...![/yellow]") # Return to zila shell
+            sys.exit(0)
         
+        if not user_query:
+            continue
+
         if user_query.lower() == "back":
-            console.print("[yellow]Going back to repository selection...[/yellow]")
-            return True
+            console.print("[yellow]Returning to ZILA shell...[/yellow]")
+            sys.exit(0)
 
         if user_query.lower() in {"exit", "quit"}:
             console.print("[yellow]Goodbye![/yellow]")
-            return False
-        
+            sys.exit(0)
+
         run(user_query, repo_path)
 
 @app.command()
-def main():
-    """Entry point of the application. Handles repository selection and starts the query loop."""
-    console.clear()
+def main(
+    path: str = typer.Argument(
+        ..., 
+        help="Absolute path to the curriculum directory for analysis.",
+        show_default=False,
+    ),
+    ) -> None:
+    
+    if not is_git_repo(path):
+        console.print(
+            f"[bold red]Error:[/bold red] "
+            f"'{path}' is not a valid git repository.\n"
+            f"Run [bold cyan]zila init[/bold cyan] to set up your workspace." 
+        )
+        sys.exit(1)
+
     console.print(Panel.fit(
-        "[bold cyan]Welcome to the Repository Reporter![/bold cyan]\n\n" \
-        "[dim]Monitoring code changes and commit intent[/dim]\n\n",
+        "[bold cyan]ZILA Assistant[/bold cyan]\n\n"
+        "[dim]Your AI companion for the ML & AI curriculum.[/dim]\n"
+        f"[dim]Workspace: {path}[/dim]",
         border_style="cyan",
-        title="Repo Reporter",
+        title="Assistant",
     ))
 
-    while True:
-        try:
-            path_input = console.input("[bold magenta]Enter the path to a git repository (or 'exit' to quit): [/bold magenta]").strip()
+    # Show directory tree so the student knows what's loaded 
+    console.print(get_directory_tree(path))
+    console.print(Rule(style="dim"))
 
-            if not path_input:
-                continue
-
-            if not is_git_repo(path_input):
-                console.print(f"[red]Error: '{path_input}' does not have a valid git repository. Please try again.[/red]")
-                continue
-
-            console.print(
-                f"\n[bold green]✓[/bold green] Found git repo: "
-                f"[bold underline]{path_input}[/bold underline]\n"
-            )
-            console.print(get_directory_tree(path_input))
-            console.print(Rule(style="dim"))
-            console.print("[dim]Type your question, 'back' to change directory, or 'exit' to quit.[/dim]\n")
-
-            should_continue = query_loop(path_input)
-            if not should_continue:
-                break
-
-        except KeyboardInterrupt:
-            console.print("\n[red]Process interrupted by user. Exiting.[/red]")
-            break
+    # Enter the conversation loop 
+    query_loop(path)
 
 if __name__ == "__main__":
-    main()
+    app()
