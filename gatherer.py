@@ -1,6 +1,9 @@
 import subprocess
 import os
 
+import logging 
+log = logging.getLogger("zila.gatherer") 
+
 def is_git_repo(path: str) -> bool:
     """Check if the given path is a Git repository."""
     try:
@@ -12,7 +15,7 @@ def is_git_repo(path: str) -> bool:
        )
        return result.returncode == 0
     except Exception as e:
-        print(f"Error checking if path is a git repository: {e}")
+        log.error(f"Error checking if path is a git repository: {e}")
         return False
     
 def get_directory_tree(path: str) -> str:
@@ -27,7 +30,7 @@ def get_directory_tree(path: str) -> str:
         files = result.stdout.strip()
         return files
     except Exception as e:
-        print(f"Error getting directory tree: {e}")
+        log.error(f"Error getting directory tree: {e}")
         return ""
     
 def get_recent_commits(path: str, limit: int = 20) -> str:
@@ -38,7 +41,7 @@ def get_recent_commits(path: str, limit: int = 20) -> str:
     """
     try:
         result = subprocess.run(
-            ["git", "-C", path, "log", f"-n {limit}", "--pretty=format:%h %an %ad %s", "--stat"],
+            ["git", "-C", path, "log", f"-n{limit}", "--pretty=format:%h %an %ad %s", "--stat"],
             capture_output=True,
             text=True,
             errors="replace"
@@ -46,7 +49,7 @@ def get_recent_commits(path: str, limit: int = 20) -> str:
         commits = result.stdout.strip()
         return commits
     except Exception as e:
-        print(f"Error getting recent commits: {e}")
+        log.error(f"Error getting recent commits: {e}")
         return ""
     
 def get_uncommitted_changes(path: str) -> str:
@@ -79,7 +82,7 @@ def get_uncommitted_changes(path: str) -> str:
 
         return "\n\n".join(parts) if parts else "No uncommitted changes."
     except Exception as e:
-        print(f"Error getting uncommitted changes: {e}")
+        log.error(f"Error getting uncommitted changes: {e}")
         return "Error retrieving uncommitted changes."
     
 def get_file_content(path: str, filepath: str) -> str:
@@ -95,7 +98,7 @@ def get_file_content(path: str, filepath: str) -> str:
             content = f.read()
         return content
     except Exception as e:
-        print(f"Error getting file content: {e}")
+        log.error(f"Error getting file content: {e}")
         return f"Error retrieving content for file '{filepath}'."
 
 def get_last_diff(path: str) -> str:
@@ -113,7 +116,7 @@ def get_last_diff(path: str) -> str:
         )
         return result.stdout.strip()
     except Exception as e:
-        print(f"Error getting last commit diff: {e}")
+        log.error(f"Error getting last commit diff: {e}")
         return "Error retrieving last commit diff."
     
 def read_readme(path: str, filepath: str = "README.md") -> str:
@@ -132,7 +135,7 @@ def read_readme(path: str, filepath: str = "README.md") -> str:
             return f"README file '{filepath}' is empty."
         return content
     except Exception as e:
-        print(f"Error reading README file: {e}")
+        log.error(f"Error reading README file: {e}")
         return f"Error retrieving README content from '{filepath}'."
 
 TOOLS = {

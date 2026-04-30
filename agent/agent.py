@@ -6,6 +6,8 @@ from rich.console import Console
 from rich.panel import Panel
 from tools import TOOLS, run_tool
 from utils.config import call_agent_step, AIResponseError
+from rich.rule import Rule
+from rich.markdown import Markdown
 
 console = Console()
 log = logging.getLogger("zila.agent")
@@ -46,7 +48,6 @@ Rules:
 - Never invent or assume information not present in your observations.
 - When you have enough evidence, stop calling tools and write your ANSWER.
 """.strip()
-
 
 def build_tool_descriptions() -> str:
     """
@@ -138,7 +139,7 @@ def run_agent(question: str, repo_path: str) -> None:
     ]
 
     for iteration in range(1, MAX_ITERATIONS + 1):
-        console.print(f"[dim]── step {iteration} of {MAX_ITERATIONS} ──[/dim]")
+        console.print(Rule(f"[dim]Step {iteration} / {MAX_ITERATIONS}[/dim]", style="dim"))
 
         try:
             # Ask the model what to do next, passing full history each time
@@ -158,17 +159,18 @@ def run_agent(question: str, repo_path: str) -> None:
 
         parsed = parse_response(raw_response)
 
+        if not parsed["thought"] and not parsed["action"] and not parsed["answer"]:
+            console.print(f"[dim red]Raw response (unparseable):[/dim red]\n{raw_response}")
+
         if parsed["thought"]:
-            console.print(
-                f"[dim yellow]Thought:[/dim yellow] {parsed['thought']}\n"
-            )
+            console.print(Panel(parsed["thought"], title="[dim yellow]Thinking[/dim yellow]", border_style="dim yellow", padding=(0, 1)))
 
         if parsed["answer"]:
             console.print(Panel(
-                parsed["answer"],
-                title="[bold cyan]Final Answer[/bold cyan]",
-                subtitle="[dim]Based on gathered context[/dim]",
-                border_style="cyan"
+                Markdown(parsed["answer"]),   # <-- wrap in Markdown
+                title="[bold cyan]Answer[/bold cyan]",
+                border_style="cyan",
+                padding=(1, 2),
             ))
             return
 
@@ -194,13 +196,9 @@ def run_agent(question: str, repo_path: str) -> None:
                     "or sections if you need more detail ...]"
                 )
 
-            # Show a preview of the observation in the terminal
-            preview = observation[:300]
-            if len(observation) > 300:
-                preview += "..."
-            console.print(
-                f"[bold green]Observation:[/bold green] {preview}\n"
-            )
+            # Replace the preview block with:
+            preview = observation[:400] + ("..." if len(observation) > 400 else "")
+            console.print(Panel(preview, title=f"[dim green]Observation from {tool_name}[/dim green]", border_style="dim green", padding=(0, 1)))
             conversation_history.append({
                 "role": "user",
                 "content": f"OBSERVATION:\n{observation}"

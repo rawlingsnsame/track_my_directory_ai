@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger("zila.config")
 
 ROUTER_SYSTEM_PROMPT = """
@@ -115,7 +114,7 @@ class AIClient:
 
         for model in self.models:
             try:
-                log.info("Routing via %s", model)
+                log.info("Answering via %s", model)
                 response = self.client.chat.completions.create(
                     model=model,
                     messages=[
@@ -163,7 +162,7 @@ class AIClient:
 
         for model in self.models:
             try:
-                log.info("Answering via %s", model)
+                log.info("Agent step via %s", model)
                 response = self.client.chat.completions.create(
                     model=model,
                     messages=[{"role": "system", "content": system_prompt}] + messages,
