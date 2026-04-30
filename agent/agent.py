@@ -1,13 +1,13 @@
 import json
 import re
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from rich.console import Console
 from rich.panel import Panel
-from tools import TOOLS, run_tool
-from utils.config import call_agent_step, AIResponseError
 from rich.rule import Rule
 from rich.markdown import Markdown
+from tools import TOOLS, run_tool
+from utils.config import call_agent_step, AIResponseError
 
 console = Console()
 log = logging.getLogger("zila.agent")
@@ -48,6 +48,7 @@ Rules:
 - Never invent or assume information not present in your observations.
 - When you have enough evidence, stop calling tools and write your ANSWER.
 """.strip()
+
 
 def build_tool_descriptions() -> str:
     """
@@ -101,11 +102,9 @@ def parse_response(text: str) -> dict:
                 parsed_action = json.loads(fixed)
                 if parsed_action.get("tool") != "error":
                     result["action"] = parsed_action
-                    console.print("[dim yellow]Fixed malformed ACTION JSON[/dim yellow]")
+                    log.debug("Fixed malformed ACTION JSON")
             except json.JSONDecodeError:
-                console.print(
-                    f"[dim red]Could not parse ACTION JSON: {raw_action}[/dim red]"
-                )
+                log.warning(f"Could not parse ACTION JSON: {raw_action[:200]}")
 
     # Extract ANSWER — everything after ANSWER: to end of string
     answer_match = re.search(r"ANSWER:\s*(.+)", text, re.DOTALL)
@@ -145,12 +144,14 @@ def run_agent(question: str, repo_path: str) -> None:
             # Ask the model what to do next, passing full history each time
             raw_response = call_agent_step(conversation_history, system_prompt)
         except AIResponseError as e:
-            console.print(f"[bold red]API Error:[/bold red] {e}")
+            console.print(Panel(str(e), title="[bold red]API Error[/bold red]", border_style="red"))
             raise
         except Exception as e:
-            console.print(f"[bold red]Failed to get response:[/bold red] {e}")
+            console.print(Panel(str(e), title="[bold red]Failed to get response[/bold red]", border_style="red"))
             log.exception("call_agent_step failed")
             raise
+
+        log.debug(f"Raw model response:\n{raw_response}")
 
         conversation_history.append({
             "role": "assistant",
@@ -159,16 +160,29 @@ def run_agent(question: str, repo_path: str) -> None:
 
         parsed = parse_response(raw_response)
 
+        # If nothing was parsed at all, show the raw response so it's never silently swallowed
         if not parsed["thought"] and not parsed["action"] and not parsed["answer"]:
-            console.print(f"[dim red]Raw response (unparseable):[/dim red]\n{raw_response}")
+            console.print(Panel(
+                raw_response,
+                title="[bold yellow]Unstructured model response[/bold yellow]",
+                subtitle="[dim]Model did not follow the expected format[/dim]",
+                border_style="yellow",
+                padding=(1, 2),
+            ))
 
         if parsed["thought"]:
-            console.print(Panel(parsed["thought"], title="[dim yellow]Thinking[/dim yellow]", border_style="dim yellow", padding=(0, 1)))
+            console.print(Panel(
+                parsed["thought"],
+                title="[dim yellow]Thinking[/dim yellow]",
+                border_style="dim yellow",
+                padding=(0, 1),
+            ))
 
         if parsed["answer"]:
             console.print(Panel(
-                Markdown(parsed["answer"]),   # <-- wrap in Markdown
+                Markdown(parsed["answer"]),
                 title="[bold cyan]Answer[/bold cyan]",
+                subtitle="[dim]Based on gathered context[/dim]",
                 border_style="cyan",
                 padding=(1, 2),
             ))
@@ -178,10 +192,8 @@ def run_agent(question: str, repo_path: str) -> None:
             tool_name = parsed["action"].get("tool", "")
             tool_args = parsed["action"].get("args", {})
 
-            console.print(
-                f"[dim cyan]Action:[/dim cyan] {tool_name} "
-                f"[dim]with args {tool_args}[/dim]\n"
-            )
+            args_display = ", ".join(f"{k}={v!r}" for k, v in tool_args.items()) if tool_args else "no args"
+            console.print(f"\n[dim cyan]  ↳ Running[/dim cyan] [cyan]{tool_name}[/cyan] [dim]({args_display})[/dim]\n")
 
             try:
                 observation = run_tool(tool_name, repo_path, tool_args)
@@ -196,18 +208,28 @@ def run_agent(question: str, repo_path: str) -> None:
                     "or sections if you need more detail ...]"
                 )
 
-            # Replace the preview block with:
             preview = observation[:400] + ("..." if len(observation) > 400 else "")
-            console.print(Panel(preview, title=f"[dim green]Observation from {tool_name}[/dim green]", border_style="dim green", padding=(0, 1)))
+            console.print(Panel(
+                preview,
+                title=f"[dim green]Observation — {tool_name}[/dim green]",
+                border_style="dim green",
+                padding=(0, 1),
+            ))
+
             conversation_history.append({
                 "role": "user",
                 "content": f"OBSERVATION:\n{observation}"
             })
 
         else:
-            console.print(
-                "[yellow]Could not parse a valid action. Nudging model...[/yellow]"
-            )
+            # No action and no answer — nudge the model and show what it said
+            console.print(Panel(
+                "The model did not return a valid ACTION or ANSWER.\n"
+                "Nudging it to try again...",
+                title="[dim yellow]Parse warning[/dim yellow]",
+                border_style="dim yellow",
+                padding=(0, 1),
+            ))
             conversation_history.append({
                 "role": "user",
                 "content": (
@@ -220,8 +242,10 @@ def run_agent(question: str, repo_path: str) -> None:
             })
 
     # Exhausted all iterations without a final answer
-    console.print(
-        f"[bold red]Agent reached the maximum of {MAX_ITERATIONS} steps "
-        "without producing a final answer. "
-        "Try asking a more specific question.[/bold red]"
-    )
+    console.print(Panel(
+        f"The agent used all {MAX_ITERATIONS} steps without producing a final answer.\n"
+        "Try asking a more specific question.",
+        title="[bold red]Max steps reached[/bold red]",
+        border_style="red",
+        padding=(1, 2),
+    ))

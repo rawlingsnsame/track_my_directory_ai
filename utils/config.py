@@ -114,7 +114,7 @@ class AIClient:
 
         for model in self.models:
             try:
-                log.info("Answering via %s", model)
+                log.debug("Routing via %s", model)
                 response = self.client.chat.completions.create(
                     model=model,
                     messages=[
@@ -162,7 +162,7 @@ class AIClient:
 
         for model in self.models:
             try:
-                log.info("Agent step via %s", model)
+                log.debug("Answering via %s", model)
                 response = self.client.chat.completions.create(
                     model=model,
                     messages=[{"role": "system", "content": system_prompt}] + messages,
@@ -203,7 +203,7 @@ class AIClient:
 
         for model in self.models:
             try:
-                log.info("Agent step via %s", model)
+                log.debug("Agent step via %s", model)
                 response = self.client.chat.completions.create(
                     model=model,
                     messages=[{"role": "system", "content": system_prompt}] + messages,

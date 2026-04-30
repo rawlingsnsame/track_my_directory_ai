@@ -1,23 +1,25 @@
 import subprocess
+import logging
 import os
 
-import logging 
-log = logging.getLogger("zila.gatherer") 
+log = logging.getLogger("zila.gatherer")
+
 
 def is_git_repo(path: str) -> bool:
     """Check if the given path is a Git repository."""
     try:
-       result = subprocess.run(
-           ["git", "-C", path, "rev-parse", "--is-inside-work-tree"],
-           capture_output=True,
-              text=True,
-              errors="replace",
-       )
-       return result.returncode == 0
+        result = subprocess.run(
+            ["git", "-C", path, "rev-parse", "--is-inside-work-tree"],
+            capture_output=True,
+            text=True,
+            errors="replace",
+        )
+        return result.returncode == 0
     except Exception as e:
-        log.error(f"Error checking if path is a git repository: {e}")
+        log.warning(f"Error checking if path is a git repository: {e}")
         return False
-    
+
+
 def get_directory_tree(path: str) -> str:
     """Return a text representation of the directory structure."""
     try:
@@ -25,14 +27,15 @@ def get_directory_tree(path: str) -> str:
             ["git", "-C", path, "ls-files", "--others", "--cached", "--exclude-standard"],
             capture_output=True,
             text=True,
-            errors="replace"
+            errors="replace",
         )
         files = result.stdout.strip()
-        return files
+        return files if files else "No tracked files found."
     except Exception as e:
-        log.error(f"Error getting directory tree: {e}")
-        return ""
-    
+        log.warning(f"Error getting directory tree: {e}")
+        return "Error retrieving directory tree."
+
+
 def get_recent_commits(path: str, limit: int = 20) -> str:
     """
     Return the last n commits with hash, author, date, and message.
@@ -41,17 +44,20 @@ def get_recent_commits(path: str, limit: int = 20) -> str:
     """
     try:
         result = subprocess.run(
+            # NOTE: f"-n{limit}" must be a single token with no space —
+            # git treats "-n 20" (two tokens) differently from "-n20" (one token).
             ["git", "-C", path, "log", f"-n{limit}", "--pretty=format:%h %an %ad %s", "--stat"],
             capture_output=True,
             text=True,
-            errors="replace"
+            errors="replace",
         )
         commits = result.stdout.strip()
-        return commits
+        return commits if commits else "No commits found."
     except Exception as e:
-        log.error(f"Error getting recent commits: {e}")
-        return ""
-    
+        log.warning(f"Error getting recent commits: {e}")
+        return "Error retrieving recent commits."
+
+
 def get_uncommitted_changes(path: str) -> str:
     """
     Return the full diff of changes not yet committed.
@@ -61,17 +67,17 @@ def get_uncommitted_changes(path: str) -> str:
         # Staged changes (added to index but not committed)
         staged = subprocess.run(
             ["git", "-C", path, "diff", "--cached"],
-            capture_output=True, 
+            capture_output=True,
             text=True,
-            errors="replace"
+            errors="replace",
         ).stdout.strip()
 
         # Unstaged changes (modified but not yet added)
         unstaged = subprocess.run(
             ["git", "-C", path, "diff"],
-            capture_output=True, 
+            capture_output=True,
             text=True,
-            errors="replace"
+            errors="replace",
         ).stdout.strip()
 
         parts = []
@@ -82,43 +88,42 @@ def get_uncommitted_changes(path: str) -> str:
 
         return "\n\n".join(parts) if parts else "No uncommitted changes."
     except Exception as e:
-        log.error(f"Error getting uncommitted changes: {e}")
+        log.warning(f"Error getting uncommitted changes: {e}")
         return "Error retrieving uncommitted changes."
-    
+
+
 def get_file_content(path: str, filepath: str) -> str:
-    """
-    Return the diff introduced by the most recent commit.
-    Useful when someone asks 'what did the last commit change?'
-    """
+    """Read and return the full content of a file in the repository."""
     try:
         full_path = os.path.join(path, filepath)
         if not os.path.exists(full_path):
             return f"File '{filepath}' does not exist in the repository."
-        with open(full_path, 'r', errors='replace') as f:
+        with open(full_path, "r", errors="replace") as f:
             content = f.read()
-        return content
+        return content if content else f"File '{filepath}' is empty."
     except Exception as e:
-        log.error(f"Error getting file content: {e}")
+        log.warning(f"Error getting file content for '{filepath}': {e}")
         return f"Error retrieving content for file '{filepath}'."
+
 
 def get_last_diff(path: str) -> str:
     """
     Return the diff introduced by the most recent commit.
     Useful when someone asks 'what did the last commit change?'
     """
-
     try:
         result = subprocess.run(
-        ["git", "-C", path, "show", "HEAD", "--stat", "--patch"],
-        capture_output=True,
-        text=True,
-        errors="replace"
+            ["git", "-C", path, "show", "HEAD", "--stat", "--patch"],
+            capture_output=True,
+            text=True,
+            errors="replace",
         )
-        return result.stdout.strip()
+        return result.stdout.strip() if result.stdout.strip() else "No diff available."
     except Exception as e:
-        log.error(f"Error getting last commit diff: {e}")
+        log.warning(f"Error getting last commit diff: {e}")
         return "Error retrieving last commit diff."
-    
+
+
 def read_readme(path: str, filepath: str = "README.md") -> str:
     """
     Return the content of the README file if it exists.
@@ -128,15 +133,20 @@ def read_readme(path: str, filepath: str = "README.md") -> str:
         full_path = os.path.join(path, filepath)
         if not os.path.exists(full_path):
             return f"README file '{filepath}' does not exist in the repository."
-        with open(full_path, 'r', errors='replace', encoding="utf-8") as f:
-            content = f.read().strip().replace('**', '').replace('#', '').replace('\r\n', '\n').replace('\r', '\n')
-        # handle empty
-        if not content:
-            return f"README file '{filepath}' is empty."
-        return content
+        with open(full_path, "r", errors="replace", encoding="utf-8") as f:
+            content = (
+                f.read()
+                .strip()
+                .replace("**", "")
+                .replace("#", "")
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+            )
+        return content if content else f"README file '{filepath}' is empty."
     except Exception as e:
-        log.error(f"Error reading README file: {e}")
+        log.warning(f"Error reading README file '{filepath}': {e}")
         return f"Error retrieving README content from '{filepath}'."
+
 
 TOOLS = {
     "directory_tree": get_directory_tree,
