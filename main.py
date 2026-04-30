@@ -9,19 +9,16 @@ import os
 import io
 import time
 import logging
-from pathlib import Path
 from typing import Optional
 
 # Force UTF-8 encoding before any I/O operations
 if sys.platform == "win32":
     os.environ["PYTHONIOENCODING"] = "utf-8"
-    # Reconfigure std streams for UTF-8
     try:
         sys.stdin.reconfigure(encoding="utf-8")
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
     except (AttributeError, io.UnsupportedOperation):
-        # Fallback for environments where reconfigure isn't available
         sys.stdin = open(sys.stdin.fileno(), "r", encoding="utf-8", buffering=1)
         sys.stdout = open(sys.stdout.fileno(), "w", encoding="utf-8", buffering=1)
         sys.stderr = open(sys.stderr.fileno(), "w", encoding="utf-8", buffering=1)
@@ -36,15 +33,24 @@ from dotenv import load_dotenv
 # Load environment variables early
 load_dotenv()
 
-# Configure logging
+# Configure logging.
+# We use DEBUG here so that all log levels (debug, info, warning, error) are
+# visible during development. The RichHandler formats them cleanly in the
+# terminal. Change to logging.WARNING in production if you want silence.
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(message)s",
-    handlers=[RichHandler(rich_tracebacks=True, show_time=False)],
+    handlers=[RichHandler(rich_tracebacks=True, show_time=False, show_path=False)],
 )
+
+# Quiet down noisy third-party loggers that get pulled in at DEBUG level
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+
 log = logging.getLogger("zila")
 
-# Import after logging setup
+# Import after logging setup so child loggers inherit the configuration
 from agent.agent import run_agent
 from gatherer import is_git_repo, get_directory_tree
 
@@ -54,7 +60,6 @@ app = typer.Typer()
 # Configuration constants
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
-MAX_ITERATIONS = 8  # agent steps per query
 
 
 def run(query: str, repo_path: str) -> None:
@@ -62,17 +67,14 @@ def run(query: str, repo_path: str) -> None:
     Execute one full cycle of the agent: route, gather context, and answer.
     Retries the whole process up to MAX_RETRIES times if it fails.
     """
-    last_error: Optional[Exception] = None
-
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             run_agent(query, repo_path)
             return
         except KeyboardInterrupt:
-            console.print("\n[red]Process interrupted by user.[/red]")
-            raise  # Re-raise to exit cleanly
+            console.print("\n[red]Interrupted.[/red]")
+            raise
         except Exception as e:
-            last_error = e
             log.debug(f"Attempt {attempt} failed: {type(e).__name__}: {e}")
 
             if attempt < MAX_RETRIES:
@@ -95,18 +97,16 @@ def query_loop(repo_path: str) -> int:
     """
     while True:
         try:
-            # Use a simple prompt that works with UTF-8
             try:
                 user_query = console.input("[bold magenta]❯ [/bold magenta]").strip()
             except UnicodeEncodeError:
-                # Fallback for terminals without UTF-8 support
                 user_query = console.input("[bold magenta]> [/bold magenta]").strip()
 
         except KeyboardInterrupt:
-            console.print("\n[yellow]Returning to zila shell...[/yellow]")
+            console.print("\n[yellow]Returning to ZILA shell...[/yellow]")
             return 0
         except EOFError:
-            # stdin closed
+            # stdin was closed — this can happen if the parent process dies
             console.print("\n[yellow]Input stream closed. Exiting...[/yellow]")
             return 1
 
@@ -144,15 +144,11 @@ def main(
     exit_code = 0
 
     try:
-        # Validate path exists
         if not os.path.exists(path):
-            console.print(
-                f"[bold red]Error:[/bold red] Path does not exist: {path}"
-            )
+            console.print(f"[bold red]Error:[/bold red] Path does not exist: {path}")
             exit_code = 1
             return
 
-        # Validate it's a git repo
         if not is_git_repo(path):
             console.print(
                 f"[bold red]Error:[/bold red] "
@@ -162,7 +158,6 @@ def main(
             exit_code = 1
             return
 
-        # Display welcome panel
         console.print(Panel.fit(
             "[bold cyan]ZILA Assistant[/bold cyan]\n\n"
             "[dim]Your AI companion for the ML & AI curriculum.[/dim]\n"
@@ -172,15 +167,15 @@ def main(
             title="Assistant",
         ))
 
-        # Show directory tree so the user knows what's loaded
         try:
-            console.print(get_directory_tree(path))
+            tree = get_directory_tree(path)
+            if tree:
+                console.print(tree)
         except Exception as e:
             log.warning(f"Could not display directory tree: {e}")
 
         console.print(Rule(style="dim"))
 
-        # Enter the conversation loop
         exit_code = query_loop(path)
 
     except Exception as e:
