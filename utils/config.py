@@ -61,15 +61,13 @@ class AIClient:
 
     # Default model list (ordered by preference/cost)
     DEFAULT_MODELS = [
-        "google/gemini-2.5-flash-lite",  # Primary - fast, cheap
-        "meta-llama/llama-4-scout",      # Free fallback
-        "mistralai/mistral-nemo",        # Another free option
+        "google/gemini-2.5-flash-lite",
     ]
 
     def __init__(
         self,
         models: Optional[List[str]] = None,
-        timeout: int = 60,
+        timeout: int = 15,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
     ):
@@ -78,7 +76,7 @@ class AIClient:
 
         # Get credentials from env or parameters
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
-        self.base_url = base_url or os.getenv("OPENROUTER_BASE_URL")
+        self.base_url = base_url or os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
 
         if not self.api_key:
             log.error("OPENROUTER_API_KEY not set in environment")

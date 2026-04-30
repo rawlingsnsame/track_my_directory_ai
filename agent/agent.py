@@ -12,7 +12,7 @@ from utils.config import call_agent_step, AIResponseError
 console = Console()
 log = logging.getLogger("zila.agent")
 
-MAX_ITERATIONS = 8
+MAX_ITERATIONS = 3
 
 AGENT_SYSTEM_PROMPT = """
 You are a repository reporter agent. You answer questions about a code repository

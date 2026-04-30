@@ -4,6 +4,7 @@ import os
 
 log = logging.getLogger("zila.gatherer")
 
+GIT_TIMEOUT = 10
 
 def is_git_repo(path: str) -> bool:
     """Check if the given path is a Git repository."""
@@ -13,6 +14,7 @@ def is_git_repo(path: str) -> bool:
             capture_output=True,
             text=True,
             errors="replace",
+            timeout=GIT_TIMEOUT,
         )
         return result.returncode == 0
     except Exception as e:
@@ -28,6 +30,7 @@ def get_directory_tree(path: str) -> str:
             capture_output=True,
             text=True,
             errors="replace",
+            timeout=GIT_TIMEOUT,
         )
         files = result.stdout.strip()
         return files if files else "No tracked files found."
@@ -50,6 +53,7 @@ def get_recent_commits(path: str, limit: int = 20) -> str:
             capture_output=True,
             text=True,
             errors="replace",
+            timeout=GIT_TIMEOUT,
         )
         commits = result.stdout.strip()
         return commits if commits else "No commits found."
@@ -70,6 +74,7 @@ def get_uncommitted_changes(path: str) -> str:
             capture_output=True,
             text=True,
             errors="replace",
+            timeout=GIT_TIMEOUT,
         ).stdout.strip()
 
         # Unstaged changes (modified but not yet added)
@@ -78,6 +83,7 @@ def get_uncommitted_changes(path: str) -> str:
             capture_output=True,
             text=True,
             errors="replace",
+            timeout=GIT_TIMEOUT,
         ).stdout.strip()
 
         parts = []
@@ -117,6 +123,7 @@ def get_last_diff(path: str) -> str:
             capture_output=True,
             text=True,
             errors="replace",
+            timeout=GIT_TIMEOUT,
         )
         return result.stdout.strip() if result.stdout.strip() else "No diff available."
     except Exception as e:

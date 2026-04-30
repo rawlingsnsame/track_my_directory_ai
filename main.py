@@ -167,12 +167,12 @@ def main(
             title="Assistant",
         ))
 
-        try:
-            tree = get_directory_tree(path)
-            if tree:
-                console.print(tree)
-        except Exception as e:
-            log.warning(f"Could not display directory tree: {e}")
+        # try:
+        #     tree = get_directory_tree(path)
+        #     if tree:
+        #         console.print(tree)
+        # except Exception as e:
+        #     log.warning(f"Could not display directory tree: {e}")
 
         console.print(Rule(style="dim"))
 
