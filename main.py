@@ -54,7 +54,7 @@ log = logging.getLogger("zila")
 from agent.agent import run_agent
 from gatherer import is_git_repo, get_directory_tree
 
-console = Console()
+console = Console(force_terminal=True)  # Ensure rich output even if stdout is redirected
 app = typer.Typer()
 
 # Configuration constants
