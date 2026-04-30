@@ -1,11 +1,14 @@
 import json
 import re
+import logging
+from typing import List, Dict, Any, Optional
 from rich.console import Console
 from rich.panel import Panel
 from tools import TOOLS, run_tool
-from utils.config import call_agent_step
+from utils.config import call_agent_step, AIResponseError
 
 console = Console()
+log = logging.getLogger("zila.agent")
 
 MAX_ITERATIONS = 8
 
@@ -121,20 +124,32 @@ def run_agent(question: str, repo_path: str) -> None:
     This is what makes multi-step reasoning possible — the model isn't
     starting fresh each iteration, it's continuing a conversation.
     """
-    system_prompt = AGENT_SYSTEM_PROMPT.format(
-        tool_descriptions=build_tool_descriptions()
-    )
+    try:
+        system_prompt = AGENT_SYSTEM_PROMPT.format(
+            tool_descriptions=build_tool_descriptions()
+        )
+    except Exception as e:
+        log.error(f"Failed to build system prompt: {e}")
+        raise
 
     # Seed the conversation with the user's question
-    conversation_history = [
+    conversation_history: List[Dict[str, str]] = [
         {"role": "user", "content": f"Question: {question}"}
     ]
 
     for iteration in range(1, MAX_ITERATIONS + 1):
         console.print(f"[dim]── step {iteration} of {MAX_ITERATIONS} ──[/dim]")
 
-        # Ask the model what to do next, passing full history each time
-        raw_response = call_agent_step(conversation_history, system_prompt)
+        try:
+            # Ask the model what to do next, passing full history each time
+            raw_response = call_agent_step(conversation_history, system_prompt)
+        except AIResponseError as e:
+            console.print(f"[bold red]API Error:[/bold red] {e}")
+            raise
+        except Exception as e:
+            console.print(f"[bold red]Failed to get response:[/bold red] {e}")
+            log.exception("call_agent_step failed")
+            raise
 
         conversation_history.append({
             "role": "assistant",
@@ -166,7 +181,11 @@ def run_agent(question: str, repo_path: str) -> None:
                 f"[dim]with args {tool_args}[/dim]\n"
             )
 
-            observation = run_tool(tool_name, repo_path, tool_args)
+            try:
+                observation = run_tool(tool_name, repo_path, tool_args)
+            except Exception as e:
+                observation = f"[Tool error: {type(e).__name__}: {e}]"
+                log.warning(f"Tool {tool_name} failed: {e}")
 
             if len(observation) > 6000:
                 observation = (
