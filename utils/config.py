@@ -1,8 +1,4 @@
-"""
-AI Client configuration and API handling.
-
-Supports multiple models with automatic fallback on failure.
-"""
+from email import errors
 import os
 import json
 import logging
@@ -103,134 +99,28 @@ class AIClient:
             log.debug(f"JSON parse failed: {e}")
             return []
 
-    def call_router(self, question: str) -> List[str]:
-        """
-        Call the router to determine which tools are needed.
-        Returns a list of tool names.
-        """
-        errors: Dict[str, str] = {}
-
+    def _call(self, messages: list, **kwargs) -> str:
+        errors = {}
         for model in self.models:
             try:
-                log.debug("Routing via %s", model)
                 response = self.client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": ROUTER_SYSTEM_PROMPT},
-                        {"role": "user", "content": question}
-                    ],
-                    timeout=self.timeout,
-                )
-
-                raw = response.choices[0].message.content
-                if not raw:
-                    log.warning("Empty response from %s", model)
-                    continue
-
-                result = self._parse_json_response(raw)
-                if result:
-                    return result
-
-                log.warning("No valid tools found in response from %s", model)
-
-            except APITimeoutError as e:
-                errors[model] = f"Timeout: {e}"
-                log.warning("Model %s timed out", model)
-            except AuthenticationError as e:
-                log.error("Authentication failed: %s", e)
-                raise AIResponseError(f"API authentication failed: {e}")
-            except APIError as e:
-                errors[model] = f"API Error: {e}"
-                log.warning("Model %s API error: %s", model, e)
-            except Exception as e:
-                errors[model] = f"{type(e).__name__}: {e}"
-                log.warning("Model %s failed: %s", model, errors[model])
-
-        if errors:
-            raise AIResponseError(
-                f"All models failed:\n" + "\n".join(f"  {m}: {e}" for m, e in errors.items())
-            )
-        return []
-
-    def call_answerer(self, messages: list, system_prompt: str) -> str:
-        """
-        Call the answerer to generate a final response.
-        """
-        errors: Dict[str, str] = {}
-
-        for model in self.models:
-            try:
-                log.debug("Answering via %s", model)
-                response = self.client.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "system", "content": system_prompt}] + messages,
-                    timeout=self.timeout,
-                )
-                content = response.choices[0].message.content
-                if content:
-                    return content
-                log.warning("Empty response from %s", model)
-
-            except APITimeoutError as e:
-                errors[model] = f"Timeout: {e}"
-                log.warning("Model %s timed out", model)
-            except AuthenticationError as e:
-                log.error("Authentication failed: %s", e)
-                raise AIResponseError(f"API authentication failed: {e}")
-            except APIError as e:
-                errors[model] = f"API Error: {e}"
-                log.warning("Model %s API error: %s", model, e)
-            except Exception as e:
-                errors[model] = f"{type(e).__name__}: {e}"
-                log.warning("Model %s failed: %s", model, errors[model])
-
-        if errors:
-            raise AIResponseError(
-                f"All models failed:\n" + "\n".join(f"  {m}: {e}" for m, e in errors.items())
-            )
-        raise AIResponseError("No response from any model")
-
-    def call_agent(self, messages: list, system_prompt: str) -> str:
-        """
-        Single model call for the agent loop.
-        Unlike call_answerer, this is called repeatedly with growing
-        history — the caller manages the conversation state.
-        Returns raw text so the agent loop can parse THOUGHT/ACTION/ANSWER.
-        """
-        errors: Dict[str, str] = {}
-
-        for model in self.models:
-            try:
-                log.debug("Agent step via %s", model)
-                response = self.client.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "system", "content": system_prompt}] + messages,
-                    timeout=self.timeout,
+                    model=model, messages=messages, timeout=self.timeout, **kwargs
                 )
                 content = response.choices[0].message.content
                 if content:
                     return content.strip()
-                log.warning("Empty response from %s", model)
-
-            except APITimeoutError as e:
-                errors[model] = f"Timeout: {e}"
-                log.warning("Model %s timed out", model)
             except AuthenticationError as e:
-                log.error("Authentication failed: %s", e)
                 raise AIResponseError(f"API authentication failed: {e}")
-            except APIError as e:
-                errors[model] = f"API Error: {e}"
-                log.warning("Model %s API error: %s", model, e)
-            except Exception as e:
-                errors[model] = f"{type(e).__name__}: {e}"
-                log.warning("Model %s failed: %s", model, errors[model])
+            except (APITimeoutError, APIError, Exception) as e:
+                errors[model] = str(e)
+        raise AIResponseError("All models failed:\n" + "\n".join(f"  {m}: {e}" for m, e in errors.items()))
 
-        if errors:
-            raise AIResponseError(
-                f"All models failed:\n" + "\n".join(f"  {m}: {e}" for m, e in errors.items())
-            )
-        raise AIResponseError("No response from any model")
+def call_router(self, question: str) -> List[str]:
+    messages = [{"role": "system", "content": ROUTER_SYSTEM_PROMPT}, {"role": "user", "content": question}]
+    return self._parse_json_response(self._call(messages))
 
+def call_agent(self, messages: list, system_prompt: str) -> str:
+    return self._call([{"role": "system", "content": system_prompt}] + messages)
 
 # Global client instance
 _evaluator: Optional[AIClient] = None

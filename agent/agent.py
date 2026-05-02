@@ -142,6 +142,7 @@ def run_agent(question: str, repo_path: str) -> None:
 
         try:
             # Ask the model what to do next, passing full history each time
+            # print(question)
             raw_response = call_agent_step(conversation_history, system_prompt)
         except AIResponseError as e:
             console.print(Panel(str(e), title="[bold red]API Error[/bold red]", border_style="red"))

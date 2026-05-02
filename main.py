@@ -1,9 +1,3 @@
-"""
-ZILA Assistant - Main Entry Point
-
-AI companion for the ML & AI curriculum.
-Handles user queries by routing to appropriate tools and gathering context.
-"""
 import sys
 import os
 import io
@@ -33,10 +27,6 @@ from dotenv import load_dotenv
 # Load environment variables early
 load_dotenv()
 
-# Configure logging.
-# We use DEBUG here so that all log levels (debug, info, warning, error) are
-# visible during development. The RichHandler formats them cleanly in the
-# terminal. Change to logging.WARNING in production if you want silence.
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(message)s",
@@ -71,6 +61,11 @@ def run(query: str, repo_path: str) -> None:
         try:
             run_agent(query, repo_path)
             return
+            # # --- ADD THIS MOCK RESPONSE ---
+            # console.print(f"[green]Agent received your query:[/green] {query}")
+            # time.sleep(1) # Simulate thinking
+            # console.print("[blue]Mock answer generated successfully![/blue]\n")
+            # return
         except KeyboardInterrupt:
             console.print("\n[red]Interrupted.[/red]")
             raise
@@ -183,7 +178,7 @@ def main(
         log.exception("Fatal error in main")
         exit_code = 1
     finally:
-        sys.exit(exit_code)
+        raise typer.Exit(code=exit_code)
 
 
 if __name__ == "__main__":

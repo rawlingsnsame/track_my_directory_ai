@@ -64,7 +64,7 @@ def run_tool (name: str, repo_path: str, args: dict) -> str:
     """
 
     if name not in TOOLS:
-        return f"Error: Unknown tool'{name}'. Available tools: {', '.join(TOOLS.keys())}"
+        return f"Error: Unknown tool' {name}'. Available tools: {', '.join(TOOLS.keys())}"
     
     tool = TOOLS[name]
 
