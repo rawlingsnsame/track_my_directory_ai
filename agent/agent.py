@@ -9,7 +9,7 @@ from rich.markdown import Markdown
 from tools import TOOLS, run_tool
 from utils.config import call_agent_step, AIResponseError
 
-console = Console()
+console = Console(force_terminal=True)  # Ensure rich output even if stdout is redirected
 log = logging.getLogger("zila.agent")
 
 MAX_ITERATIONS = 3

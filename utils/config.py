@@ -115,12 +115,12 @@ class AIClient:
                 errors[model] = str(e)
         raise AIResponseError("All models failed:\n" + "\n".join(f"  {m}: {e}" for m, e in errors.items()))
 
-def call_router(self, question: str) -> List[str]:
-    messages = [{"role": "system", "content": ROUTER_SYSTEM_PROMPT}, {"role": "user", "content": question}]
-    return self._parse_json_response(self._call(messages))
+    def call_router(self, question: str) -> List[str]:
+        messages = [{"role": "system", "content": ROUTER_SYSTEM_PROMPT}, {"role": "user", "content": question}]
+        return self._parse_json_response(self._call(messages))
 
-def call_agent(self, messages: list, system_prompt: str) -> str:
-    return self._call([{"role": "system", "content": system_prompt}] + messages)
+    def call_agent(self, messages: list, system_prompt: str) -> str:
+        return self._call([{"role": "system", "content": system_prompt}] + messages)
 
 # Global client instance
 _evaluator: Optional[AIClient] = None
